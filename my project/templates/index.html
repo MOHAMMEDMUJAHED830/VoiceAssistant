@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f5;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 40%;
+            max-width: 400px;
+            margin-right: 20px;
+        }
+        .response-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 50%;
+            min-height: 200px;
+            overflow-wrap: break-word;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Voice Assistant</h1>
+        <p>Click the button and speak your query or type below.</p>
+        <button onclick="startListening()">🎤 Speak Now</button>
+        <input type="text" id="textInput" placeholder="Type your query here..." onkeypress="handleKeyPress(event)">
+        <button onclick="processTextInput()">Send</button>
+    </div>
+
+    <div class="response-container" id="responseBox">Responses will appear here...</div>
+
+    <script>
+        let speechRecognition;
+        let lastEscPress = 0;
+
+        function startListening() {
+            if ('webkitSpeechRecognition' in window) {
+                speechRecognition = new webkitSpeechRecognition();
+                speechRecognition.lang = 'en-US';
+                speechRecognition.interimResults = false;
+                speechRecognition.maxAlternatives = 1;
+                speechRecognition.start();
+                speechRecognition.onresult = async (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    processInput(transcript);
+                };
+            }
+        }
+
+        async function processTextInput() {
+            const text = document.getElementById("textInput").value.trim();
+            if (text === "") return;
+            processInput(text);
+        }
+
+        async function processInput(prompt) {
+            const responseBox = document.getElementById("responseBox");
+            responseBox.innerText = "You said: " + prompt + "\nProcessing...";
+            const response = await getGeminiResponse(prompt);
+            responseBox.innerText = "Chatbot: " + response;
+            speakResponse(response);
+        }
+
+        async function getGeminiResponse(prompt) {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/get_response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await response.json();
+                return data.reply || "No response received.";
+            } catch (error) {
+                return "An error occurred while fetching the response.";
+            }
+        }
+
+        function speakResponse(text) {
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(text);
+            synth.speak(utterance);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                processTextInput();
+            }
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                const now = Date.now();
+                if (now - lastEscPress < 500) {
+                    location.reload(); // Double ESC resets page
+                } else {
+                    window.speechSynthesis.cancel(); // Single ESC stops speech
+                }
+                lastEscPress = now;
+            }
+        });
+    </script>
+</body>
+</html>
+
+
